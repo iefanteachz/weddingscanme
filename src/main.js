@@ -1,7 +1,7 @@
 // Keys come from .env (see .env.example). Vite exposes only VITE_* variables.
 const URL_ = import.meta.env.VITE_SCRIPT_URL || '';
 const CODE = import.meta.env.VITE_EVENT_CODE || '';
-const COUPLE = import.meta.env.VITE_COUPLE || 'Irfan & Icha';
+const COUPLE = import.meta.env.VITE_COUPLE || 'Irfan & Aisyah';
 const EVENT_LINE = import.meta.env.VITE_EVENT_LINE || 'Majlis Bersanding';
 
 // Edit the missions freely. Keep 5 photos first, then 1 video (the server expects slot 5 = video).
@@ -13,7 +13,7 @@ const MISSIONS = [
   { bm: 'Gelagat paling kelakar', en: 'Funniest moment', kind: 'photo' },
   { bm: 'Video ucapan 10 saat untuk pengantin', en: '10-second video wish for the couple', kind: 'video' }
 ];
-const MAX_VIDEO = 15 * 1024 * 1024, MAX_SIDE = 2000;
+const MAX_VIDEO = 30 * 1024 * 1024, MAX_SECONDS = 10, MAX_SIDE = 2000;
 
 const $ = id => document.getElementById(id);
 const store = {
@@ -42,10 +42,76 @@ window.addEventListener('beforeunload', e => {
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n; };
 const btn = (text, cls, fn) => { const b = el('button', cls, text); b.onclick = fn; return b; };
 
+// ---- In-page video recorder: stops by itself at MAX_SECONDS ----
+const RECORDER_OK = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+const css = document.createElement('style');
+css.textContent = `.rec{position:fixed;inset:0;z-index:50;background:#000;color:#fff;display:flex;flex-direction:column;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom))}
+.rec video{flex:1;min-height:0;width:100%;object-fit:cover;border-radius:12px;background:#111;transform:scaleX(-1)}
+.rtime{text-align:center;font-weight:700;font-size:1.3rem}.rhint{text-align:center;color:#bbb;font-size:.9rem}
+.rbar{height:8px;background:#333;border-radius:4px;overflow:hidden}.rbar i{display:block;height:100%;width:0;background:#D4AE5A}
+.rec .secondary{color:#fff;border-color:#fff}`;
+document.head.append(css);
+
+function pickMime() {
+  return ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm']
+    .find(t => MediaRecorder.isTypeSupported(t)) || '';
+}
+
+function recordVideo(i) {
+  return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true })
+    .then(stream => openRecorder(i, stream), () => nativePick(i)); // permission denied -> normal camera picker
+}
+
+function openRecorder(i, stream) {
+  const type = pickMime();
+  const ov = el('div', 'rec'), v = el('video');
+  v.srcObject = stream; v.muted = true; v.playsInline = true; v.autoplay = true;
+  const time = el('div', 'rtime', `0 / ${MAX_SECONDS} s`);
+  const fill = el('i'), track = el('div', 'rbar'); track.append(fill);
+  const hint = el('div', 'rhint', `Berhenti sendiri selepas ${MAX_SECONDS} saat / Stops automatically after ${MAX_SECONDS} seconds`);
+  let rec, timer, t0, cancelled = false;
+  const chunks = [];
+  const close = () => { clearInterval(timer); stream.getTracks().forEach(t => t.stop()); ov.remove(); };
+  const finish = () => {
+    close();
+    if (cancelled) return;
+    const mime = (rec.mimeType || type || 'video/webm').split(';')[0];
+    const f = new File([new Blob(chunks, { type: mime })], 'wish.' + (mime.includes('mp4') ? 'mp4' : 'webm'), { type: mime });
+    if (pending[i] && pending[i].url) URL.revokeObjectURL(pending[i].url);
+    pending[i] = { file: f, url: URL.createObjectURL(f), error: '' };
+    draw();
+  };
+  const start = () => {
+    rec = new MediaRecorder(stream, Object.assign({ videoBitsPerSecond: 2500000 }, type ? { mimeType: type } : {}));
+    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    rec.onstop = finish;
+    rec.start(); t0 = Date.now();
+    go.hidden = true; stopB.hidden = false;
+    timer = setInterval(() => {
+      const s = (Date.now() - t0) / 1000;
+      time.textContent = `${Math.min(MAX_SECONDS, Math.floor(s))} / ${MAX_SECONDS} s`;
+      fill.style.width = Math.min(100, s / MAX_SECONDS * 100) + '%';
+      if (s >= MAX_SECONDS && rec.state === 'recording') rec.stop(); // forced stop
+    }, 100);
+  };
+  const go = btn('Mula rakam / Start', 'primary', start);
+  const stopB = btn('Berhenti / Stop', 'primary', () => { if (rec && rec.state === 'recording') rec.stop(); });
+  stopB.hidden = true;
+  const cancel = btn('Batal / Cancel', 'secondary', () => {
+    cancelled = true;
+    if (rec && rec.state === 'recording') rec.stop(); else close();
+  });
+  const row = el('div', 'row'); row.append(go, stopB, cancel);
+  ov.append(v, time, track, hint, row);
+  document.body.append(ov);
+}
+
 function media(p, m) {
   if (m.kind === 'video') { const v = el('video'); v.src = p.url; v.controls = true; v.playsInline = true; v.muted = true; return v; }
   const i = el('img'); i.src = p.url; i.alt = ''; return i;
 }
+
+const unlocked = () => used.size > 0 || store.get('played') === '1';
 
 function draw() {
   $('score').textContent = `${used.size} / ${MISSIONS.length} misi selesai / missions done`;
@@ -54,13 +120,15 @@ function draw() {
   MISSIONS.forEach((m, i) => {
     const li = el('li', 'card'), p = pending[i], isV = m.kind === 'video';
     li.append(el('div', 'mt', `${i + 1}. ${m.bm}`), el('small', '', m.en));
-    if (used.has(i)) {
+    if (p && p.state === 'up') {
+      if (p.url) li.append(media(p, m));
+      li.append(el('div', '', 'Memuat naik… / Uploading…'));
+    } else if (used.has(i) && !(p && !p.sent)) {
       li.classList.add('done');
       if (p && p.url) li.append(media(p, m));
       li.append(el('div', 'ok', '✓ Dihantar / Sent'));
-    } else if (p && p.state === 'up') {
-      if (p.url) li.append(media(p, m));
-      li.append(el('div', '', 'Memuat naik… / Uploading…'));
+      const again = el('div', 'row'); again.append(btn('Hantar lagi / Send another', 'secondary', () => pick(i)));
+      li.append(again);
     } else {
       if (p && p.file) li.append(media(p, m));
       if (p && p.error) li.append(el('div', 'err', p.error));
@@ -75,20 +143,45 @@ function draw() {
     ol.append(li);
   });
   $('finish').hidden = used.size < MISSIONS.length;
-  $('lock').hidden = used.size > 0;
-  $('grid').hidden = $('refresh').hidden = used.size === 0;
+  $('lock').hidden = unlocked();
+  $('grid').hidden = $('refresh').hidden = !unlocked();
+}
+
+function videoSeconds(file) {
+  return new Promise(resolve => {
+    const v = document.createElement('video'), u = URL.createObjectURL(file);
+    v.preload = 'metadata';
+    v.onloadedmetadata = () => { URL.revokeObjectURL(u); resolve(v.duration); };
+    v.onerror = () => { URL.revokeObjectURL(u); resolve(NaN); };
+    v.src = u;
+  });
 }
 
 function pick(i) {
   if (!guestEl.value.trim()) { guestEl.classList.add('need'); $('nameMsg').hidden = false; guestEl.focus(); return; }
+  if (MISSIONS[i].kind === 'video' && RECORDER_OK) return recordVideo(i);
+  nativePick(i);
+}
+
+function nativePick(i) {
   const isV = MISSIONS[i].kind === 'video';
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = isV ? 'video/*' : 'image/*'; inp.capture = isV ? 'user' : 'environment';
-  inp.onchange = () => {
+  inp.onchange = async () => {
     const f = inp.files[0]; if (!f) return;
     if (pending[i] && pending[i].url) URL.revokeObjectURL(pending[i].url);
-    if (isV && f.size > MAX_VIDEO) { pending[i] = { error: 'Video terlalu besar. Rakam sekitar 10 saat. / Video too large. Keep it to about 10 seconds.' }; }
-    else pending[i] = { file: f, url: URL.createObjectURL(f), error: '' };
+    if (isV) {
+      const sec = await videoSeconds(f);
+      if (sec > MAX_SECONDS + 0.5) {
+        pending[i] = { error: `Video ${Math.round(sec)} saat. Maksimum ${MAX_SECONDS} saat. / Video is ${Math.round(sec)} seconds. Maximum is ${MAX_SECONDS}.` };
+        draw(); return;
+      }
+      if (f.size > MAX_VIDEO) {
+        pending[i] = { error: 'Video terlalu besar. Guna kualiti 1080p. / Video too large. Use 1080p quality, not 4K.' };
+        draw(); return;
+      }
+    }
+    pending[i] = { file: f, url: URL.createObjectURL(f), error: '' };
     draw();
   };
   inp.click();
@@ -136,7 +229,7 @@ async function send(i) {
   try {
     const data = isV ? await fileB64(p.file) : await jpegB64(p.file);
     await post({ action: 'submit', slot: i, mime: isV ? (p.file.type || 'video/mp4') : 'image/jpeg', data });
-    used.add(i); p.state = 'done';
+    used.add(i); p.state = 'done'; p.sent = true; store.set('played', '1');
     draw(); loadWall();
   } catch (e) {
     if (e.dup) used.add(i);
@@ -145,7 +238,7 @@ async function send(i) {
 }
 
 async function loadWall() {
-  if (!used.size || !URL_) return;
+  if (!unlocked() || !URL_) return;
   try {
     const j = await (await fetch(`${URL_}?action=list`)).json(), g = $('grid');
     g.innerHTML = '';
@@ -160,9 +253,4 @@ async function loadWall() {
 $('refresh').onclick = loadWall;
 setInterval(() => { if (!document.hidden) loadWall(); }, 30000);
 
-(async () => {
-  if (URL_) {
-    try { (await (await fetch(`${URL_}?action=me&device=${device}`)).json()).used.forEach(n => used.add(n)); } catch (e) {}
-  }
-  draw(); loadWall();
-})();
+draw(); loadWall();
