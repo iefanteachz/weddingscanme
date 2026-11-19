@@ -45,10 +45,40 @@ button:disabled{opacity:.5}
 #grid span{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 [hidden]{display:none!important}
 .warn{background:var(--card);border:1.5px dashed var(--err);padding:12px;border-radius:10px;margin-bottom:18px;color:var(--err);font-size:.9rem}
+body.locked main{display:none}
+#loader{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .5s}
+#loader.out{opacity:0;pointer-events:none}
+.mono{font-family:'Cormorant Garamond',Georgia,serif;font-size:3.2rem;font-weight:700;color:var(--gold);letter-spacing:.08em}
+.lbar{width:160px;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.lbar i{display:block;height:100%;width:0;background:var(--gold);animation:fill 1.6s ease-out forwards}
+@keyframes fill{to{width:100%}}
+#loader p{margin:0;color:var(--muted);font-size:.9rem}
+#intro{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px;animation:rise .8s ease both}
+#intro .eyebrow{letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-size:.85rem;margin:0 0 18px}
+#intro h1{font-size:clamp(3rem,16vw,4.6rem);margin:0 0 16px}
+#intro .rule{width:56px;height:2px;background:var(--gold);margin:0 auto 20px}
+#intro .lead{max-width:340px}
+#intro button{width:100%;max-width:320px}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+.iconbtn{display:flex;align-items:center;justify-content:center;padding:16px}
 </style>
-  <script type="module" crossorigin src="./assets/index-CVc3eaFK.js"></script>
+  <script type="module" crossorigin src="./assets/index-Cx2QIhNk.js"></script>
 </head>
-<body>
+<body class="locked">
+<div id="loader" role="status" aria-live="polite">
+  <div class="mono" id="mono">&amp;</div>
+  <div class="lbar"><i></i></div>
+  <p>Memuatkan… / Loading…</p>
+</div>
+<section id="intro" hidden>
+  <p class="eyebrow" id="introEvent"></p>
+  <h1 id="introNames"></h1>
+  <div class="rule"></div>
+  <p class="lead">Selamat datang ke majlis kami. Kongsikan detik anda melalui permainan kecil ini.<br>Welcome to our celebration. Share your moments through a small game.</p>
+  <button class="primary" id="startBtn">Mula / Start</button>
+</section>
+
 <main>
   <h1 id="title"></h1>
   <p class="sub" id="eventline"></p>
