@@ -30,6 +30,22 @@ guestEl.value = store.get('guestName') || '';
 guestEl.addEventListener('input', () => { store.set('guestName', guestEl.value); guestEl.classList.remove('need'); $('nameMsg').hidden = true; });
 $('title').textContent = COUPLE;
 $('eventline').textContent = EVENT_LINE;
+
+// ---- Loading screen -> intro page -> game ----
+const seen = (() => { try { return sessionStorage.getItem('intro') === '1'; } catch (e) { return false; } })();
+$('mono').textContent = COUPLE.split('&').map(n => n.trim().charAt(0)).join(' & ');
+$('introNames').textContent = COUPLE;
+$('introEvent').textContent = EVENT_LINE;
+function enter() { document.body.classList.remove('locked'); $('intro').hidden = true; window.scrollTo(0, 0); }
+$('startBtn').onclick = () => { try { sessionStorage.setItem('intro', '1'); } catch (e) {} enter(); };
+Promise.all([
+  Promise.race([document.fonts ? document.fonts.ready : 0, new Promise(r => setTimeout(r, 3000))]),
+  new Promise(r => setTimeout(r, 1600)),
+  new Promise(r => document.readyState === 'complete' ? r() : window.addEventListener('load', r))
+]).then(() => {
+  const L = $('loader'); L.classList.add('out');
+  setTimeout(() => { L.remove(); if (seen) enter(); else $('intro').hidden = false; }, 500);
+});
 if (!URL_ || URL_.includes('PASTE')) $('warn').hidden = false;
 
 const used = new Set();
@@ -106,6 +122,14 @@ function openRecorder(i, stream) {
   document.body.append(ov);
 }
 
+const CAMERA_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.6"/></svg>';
+const VIDEO_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="M15 10.5l6-3v9l-6-3"/></svg>';
+function iconBtn(svg, label, fn) {
+  const b = el('button', 'primary iconbtn');
+  b.innerHTML = svg; b.setAttribute('aria-label', label); b.title = label; b.onclick = fn;
+  return b;
+}
+
 function media(p, m) {
   if (m.kind === 'video') { const v = el('video'); v.src = p.url; v.controls = true; v.playsInline = true; v.muted = true; return v; }
   const i = el('img'); i.src = p.url; i.alt = ''; return i;
@@ -136,7 +160,7 @@ function draw() {
       if (p && p.file) {
         row.append(btn('Hantar / Send', 'primary', () => send(i)), btn('Ambil semula / Retake', 'secondary', () => pick(i)));
       } else {
-        row.append(btn(isV ? 'Rakam video / Record video' : 'Ambil gambar / Take photo', 'primary', () => pick(i)));
+        row.append(iconBtn(isV ? VIDEO_ICON : CAMERA_ICON, isV ? 'Rakam video / Record video' : 'Ambil gambar / Take photo', () => pick(i)));
       }
       li.append(row);
     }
