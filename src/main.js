@@ -143,7 +143,9 @@ function draw() {
   const ol = $('missions'); ol.innerHTML = '';
   MISSIONS.forEach((m, i) => {
     const li = el('li', 'card'), p = pending[i], isV = m.kind === 'video';
-    li.append(el('div', 'mt', `${i + 1}. ${m.bm}`), el('small', '', m.en));
+    const head = el('div', 'chead'), txt = el('div', 'ctext');
+    txt.append(el('div', 'mt', `${i + 1}. ${m.bm}`), el('small', '', m.en));
+    head.append(txt); li.append(head);
     if (p && p.state === 'up') {
       if (p.url) li.append(media(p, m));
       li.append(el('div', '', 'Memuat naik… / Uploading…'));
@@ -156,13 +158,13 @@ function draw() {
     } else {
       if (p && p.file) li.append(media(p, m));
       if (p && p.error) li.append(el('div', 'err', p.error));
-      const row = el('div', 'row');
       if (p && p.file) {
+        const row = el('div', 'row');
         row.append(btn('Hantar / Send', 'primary', () => send(i)), btn('Ambil semula / Retake', 'secondary', () => pick(i)));
+        li.append(row);
       } else {
-        row.append(iconBtn(isV ? VIDEO_ICON : CAMERA_ICON, isV ? 'Rakam video / Record video' : 'Ambil gambar / Take photo', () => pick(i)));
+        head.append(iconBtn(isV ? VIDEO_ICON : CAMERA_ICON, isV ? 'Rakam video / Record video' : 'Ambil gambar / Take photo', () => pick(i)));
       }
-      li.append(row);
     }
     ol.append(li);
   });

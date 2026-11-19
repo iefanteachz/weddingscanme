@@ -62,7 +62,11 @@ body.locked main{display:none}
 #intro button{flex:none;width:100%;max-width:320px;padding:16px}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
-.iconbtn{flex:none;display:flex;align-items:center;justify-content:center;width:64px;height:64px;padding:0;border-radius:50%;margin:2px auto 0;box-shadow:0 3px 10px rgba(43,58,50,.25)}
+.chead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.chead:not(:last-child){margin-bottom:10px}
+.ctext{flex:1;min-width:0}
+.ctext small{margin-bottom:0}
+.iconbtn{flex:none;display:flex;align-items:center;justify-content:center;width:56px;height:56px;padding:0;border-radius:50%;box-shadow:0 3px 10px rgba(43,58,50,.25)}
 </style>
 </head>
 <body class="locked">
